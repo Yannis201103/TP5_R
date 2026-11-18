@@ -480,6 +480,7 @@ part_usa <- ca_par_pays %>%
 print(ca_par_pays)
 print(part_usa)
 
+# C
 commandes_vendeur <- commandes %>%
   filter(Employee_ID != 99999999)
 
@@ -489,6 +490,7 @@ matching_vendeurs <- commandes_vendeur %>%
 nrow(matching_vendeurs)
 nrow(commandes_vendeur)
 
+# D
 top_vendeur <- commandes_vendeur %>%
   inner_join(emp_propre, by = c("Employee_ID" = "Employee_ID")) %>%
   group_by(Employee_ID, First, Last, Job_Title) %>%
@@ -499,6 +501,7 @@ top_vendeur <- commandes_vendeur %>%
 print(top_vendeur)
 ```
 
+https://github.com/Yannis201103/TP5_R
 
 
 
