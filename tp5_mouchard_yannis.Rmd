@@ -1,0 +1,20 @@
+---
+title: "tp5_mouchard_yannis"
+output: html_document
+date: "2026-11-18"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(readxl)
+```
+
+```{r}
+ref <- read.table("data/auto2004_original.txt", header = TRUE, sep = "\t", dec = ".")
+p_l3 <- read.table("data/auto2004_original_ligne3.txt", header = TRUE, sep = "\t", dec = ".", skip = 3)
+p_sn <- read.table("data/auto2004_sans_nom.txt", header = FALSE, sep = "\t", dec = ".")
+names(p_sn) <- names(ref)
+dm <- read.table("data/auto2004_don_manquante.txt", header = TRUE, sep = "\t", dec = ".", na.strings = c("NA", ""))
+d99 <- read.table("data/auto2004_don_manquan_99999.txt", header = TRUE, sep = "\t", dec = ".", na.strings = "99999")
+d99
+```
