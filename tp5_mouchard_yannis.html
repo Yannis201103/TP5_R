@@ -355,63 +355,200 @@ display: none;
 </div>
 
 
-<pre class="r"><code>ref &lt;- read.table(&quot;data/auto2004_original.txt&quot;, header = TRUE, sep = &quot;\t&quot;, dec = &quot;.&quot;)
+<div id="partie-a-importer-des-fichiers-texte-récalcitrants" class="section level2">
+<h2>Partie A : Importer des fichiers texte récalcitrants</h2>
+</div>
+<div id="a1.-cinq-versions-dun-même-fichier" class="section level2">
+<h2>A1. Cinq versions d’un même fichier</h2>
+<pre class="r"><code># A
+ref &lt;- read.table(&quot;data/auto2004_original.txt&quot;, header = TRUE, sep = &quot;\t&quot;, dec = &quot;.&quot;)
+# B 
 p_l3 &lt;- read.table(&quot;data/auto2004_original_ligne3.txt&quot;, header = TRUE, sep = &quot;\t&quot;, dec = &quot;.&quot;, skip = 3)
+# C 
 p_sn &lt;- read.table(&quot;data/auto2004_sans_nom.txt&quot;, header = FALSE, sep = &quot;\t&quot;, dec = &quot;.&quot;)
 names(p_sn) &lt;- names(ref)
+# D 
 dm &lt;- read.table(&quot;data/auto2004_don_manquante.txt&quot;, header = TRUE, sep = &quot;\t&quot;, dec = &quot;.&quot;, na.strings = c(&quot;NA&quot;, &quot;&quot;))
+# E 
 d99 &lt;- read.table(&quot;data/auto2004_don_manquan_99999.txt&quot;, header = TRUE, sep = &quot;\t&quot;, dec = &quot;.&quot;, na.strings = &quot;99999&quot;)
-d99</code></pre>
-<pre><code>##                           Modele Cylindree Puissance Vitesse Poids Largeur
-## 1            Citroen C2 1.1 Base      1124        NA     158   932    1659
-## 2             Smart Fortwo Coupe       698        52      NA   730    1515
-## 3                   Mini 1.6 170      1598       170     218  1215    1690
-## 4            Nissan Micra 1.2 65      1240        65     154   965    1660
-## 5            Renault Clio 3.0 V6      2946       255     245    NA    1810
-## 6                Audi A3 1.9 TDI      1896       105     187  1295    1765
-## 7         Peugeot 307 1.4 HDI 70      1398        70     160  1179    1746
-## 8         Peugeot 407 3.0 V6 BVA      2946       211     229  1640    1811
-## 9      Mercedes Classe C 270 CDI      2685        NA     230  1600    1728
-## 10                      BMW 530d      2993       218     245  1595    1846
-## 11 Jaguar S-Type 2.7 V6 Bi-Turbo      2720       207     230  1722    1818
-## 12                     BMW  745i      4398       333     250  1870    1902
-## 13     Mercedes Classe S 400 CDI      3966        NA     250  1915    2092
-## 14       Citroen C3 Pluriel 1.6i      1587       110     185  1177    1700
-## 15                   BMW Z4 2.5i      2494       192      NA    NA    1781
-## 16              Audi TT 1.8T 180      1781       180     228    NA    1764
-## 17         Aston Martin Vanquish      5935       460      NA  1835      NA
-## 18        Bentley Continental GT        NA       560     318  2385    1918
-## 19                  Ferrari Enzo      5998       660     350  1365    2650
-## 20    Renault Scenic 1.9 dCi 120      1870       120      NA  1430    1805
-## 21 Volkswagen Touran 1.9 TDI 105      1896        NA     180  1498    1794
-## 22       Land Rover Defender Td5      2495       122     135  1695    1790
-## 23      Land Rover Discovery Td5      2495       138     157    NA    2190
-## 24        Nissan X-Trail 2.2 dCi      2184       136     180  1520    1765
-##    Longueur
-## 1        NA
-## 2      2500
-## 3      3625
-## 4      3715
-## 5      3812
-## 6      4203
-## 7      4202
-## 8      4676
-## 9      4528
-## 10     4841
-## 11     4905
-## 12     5029
-## 13     5038
-## 14     3934
-## 15     4091
-## 16     4041
-## 17     4665
-## 18       NA
-## 19     4700
-## 20     4259
-## 21     4391
-## 22       NA
-## 23     4705
-## 24     4455</code></pre>
+
+verification_table &lt;- data.frame(
+  Fichier = c(&quot;auto2004_original_ligne3 (p_l3)&quot;, &quot;auto2004_sans_nom (p_sn)&quot;, &quot;auto2004_don_manquante (dm)&quot;,&quot;auto2004_don_manquan_99999 (d99)&quot;),
+  Dimensions = c(identical(dim(ref), dim(p_l3)),identical(dim(ref), dim(p_sn)),identical(dim(ref), dim(dm)),identical(dim(ref), dim(d99))),
+  Noms_de_colonnes = c(identical(names(ref), names(p_l3)),identical(names(ref), names(p_sn)),identical(names(ref), names(dm)),identical(names(ref), names(d99))),
+  Types_de_donnees = c(identical(sapply(ref, class), sapply(p_l3, class)),identical(sapply(ref, class), sapply(p_sn, class)),identical(sapply(ref, class), sapply(dm, class)),identical(sapply(ref, class), sapply(d99, class)))
+)
+verification_table</code></pre>
+<pre><code>##                            Fichier Dimensions Noms_de_colonnes Types_de_donnees
+## 1  auto2004_original_ligne3 (p_l3)       TRUE             TRUE             TRUE
+## 2         auto2004_sans_nom (p_sn)       TRUE             TRUE             TRUE
+## 3      auto2004_don_manquante (dm)       TRUE             TRUE             TRUE
+## 4 auto2004_don_manquan_99999 (d99)       TRUE             TRUE             TRUE</code></pre>
+</div>
+<div id="a2.-comparer-les-valeurs-manquantes" class="section level2">
+<h2>A2. Comparer les valeurs manquantes</h2>
+<pre class="r"><code># A
+cat(&quot;Nombre de NA dans dm :&quot;, sum(is.na(dm)), &quot;\n&quot;)</code></pre>
+<pre><code>## Nombre de NA dans dm : 17</code></pre>
+<pre class="r"><code>cat(&quot;Nombre de NA dans d99 :&quot;, sum(is.na(d99)), &quot;\n&quot;)</code></pre>
+<pre><code>## Nombre de NA dans d99 : 17</code></pre>
+<pre class="r"><code>cat(&quot;Sont-elles aux mêmes positions ? :&quot;, identical(is.na(dm), is.na(d99)), &quot;\n&quot;)</code></pre>
+<pre><code>## Sont-elles aux mêmes positions ? : TRUE</code></pre>
+<pre class="r"><code># B
+cases_na_d99 &lt;- which(is.na(d99), arr.ind = TRUE)
+
+valeurs_manquantes_ref &lt;- data.frame(
+  Ligne = cases_na_d99[, &quot;row&quot;],
+  Colonne = colnames(d99)[cases_na_d99[, &quot;col&quot;]],
+  Modele = ref$Modele[cases_na_d99[, &quot;row&quot;]],
+  Valeur_Originale_Ref = mapply(function(r, c) ref[r, c], cases_na_d99[, &quot;row&quot;], cases_na_d99[, &quot;col&quot;])
+)
+
+valeurs_manquantes_ref</code></pre>
+<pre><code>##    Ligne   Colonne                        Modele Valeur_Originale_Ref
+## 1     18 Cylindree        Bentley Continental GT                 5998
+## 2      1 Puissance           Citroen C2 1.1 Base                   61
+## 3      9 Puissance     Mercedes Classe C 270 CDI                  170
+## 4     13 Puissance     Mercedes Classe S 400 CDI                  260
+## 5     21 Puissance Volkswagen Touran 1.9 TDI 105                  105
+## 6      2   Vitesse            Smart Fortwo Coupe                  135
+## 7     15   Vitesse                   BMW Z4 2.5i                  235
+## 8     17   Vitesse         Aston Martin Vanquish                  306
+## 9     20   Vitesse    Renault Scenic 1.9 dCi 120                  188
+## 10     5     Poids           Renault Clio 3.0 V6                 1400
+## 11    15     Poids                   BMW Z4 2.5i                 1260
+## 12    16     Poids              Audi TT 1.8T 180                 1280
+## 13    23     Poids      Land Rover Discovery Td5                 2175
+## 14    17   Largeur         Aston Martin Vanquish                 1923
+## 15     1  Longueur           Citroen C2 1.1 Base                 3666
+## 16    18  Longueur        Bentley Continental GT                 4804
+## 17    22  Longueur       Land Rover Defender Td5                 3883</code></pre>
+<pre class="r"><code># C
+d99_sans_na_strings &lt;- read.table(&quot;data/auto2004_don_manquan_99999.txt&quot;, header = TRUE, sep = &quot;\t&quot;, dec = &quot;.&quot;)
+
+cat(&quot;Puissance moyenne fausse (avec 99999) :&quot;, mean(d99_sans_net &lt;- d99_sans_na_strings$Puissance), &quot;\n&quot;)</code></pre>
+<pre><code>## Puissance moyenne fausse (avec 99999) : 16848.33</code></pre>
+<pre class="r"><code>cat(&quot;Puissance moyenne réelle (avec NA) :&quot;, mean(d99$Puissance, na.rm = TRUE), &quot;\n&quot;)</code></pre>
+<pre><code>## Puissance moyenne réelle (avec NA) : 218.2</code></pre>
+<pre class="r"><code>cat(&quot;Erreur commise (écart) :&quot;, mean(d99_sans_net &lt;- d99_sans_na_strings$Puissance) - mean(d99$Puissance, na.rm = TRUE), &quot;\n&quot;)</code></pre>
+<pre><code>## Erreur commise (écart) : 16630.13</code></pre>
+</div>
+<div id="a3.-des-relevés-météo-à-la-française" class="section level2">
+<h2>A3. Des relevés météo à la française</h2>
+<pre class="r"><code># A
+meteo &lt;- read_csv2(
+  &quot;data/stations_janvier2026.csv&quot;,
+  locale = locale(encoding = &quot;Latin1&quot;),
+  na = c(&quot;NA&quot;, &quot;&quot;, &quot;9999&quot;, &quot;n/a&quot;, &quot;-&quot;),
+  comment = &quot;#&quot;,
+  col_types = cols(
+    date = col_date(format = &quot;%d/%m/%Y&quot;),
+    station = col_character(),
+    temp_min = col_double(),
+    temp_max = col_double(),
+    pluie_mm = col_double(),
+    vent_kmh = col_double()
+  )
+)</code></pre>
+<pre><code>## ℹ Using &quot;&#39;,&#39;&quot; as decimal and &quot;&#39;.&#39;&quot; as grouping mark. Use `read_delim()` for more control.</code></pre>
+<pre class="r"><code># B 
+dim(meteo)</code></pre>
+<pre><code>## [1] 124   6</code></pre>
+<pre class="r"><code>sapply(meteo, class)</code></pre>
+<pre><code>##     station        date    temp_min    temp_max    pluie_mm    vent_kmh 
+## &quot;character&quot;      &quot;Date&quot;   &quot;numeric&quot;   &quot;numeric&quot;   &quot;numeric&quot;   &quot;numeric&quot;</code></pre>
+<pre class="r"><code>colSums(is.na(meteo))</code></pre>
+<pre><code>##  station     date temp_min temp_max pluie_mm vent_kmh 
+##        0        0        0        6        0        5</code></pre>
+<pre class="r"><code>range(meteo$date)</code></pre>
+<pre><code>## [1] &quot;2026-01-01&quot; &quot;2026-01-31&quot;</code></pre>
+<pre class="r"><code>unique(meteo$station)</code></pre>
+<pre><code>## [1] &quot;Orléans&quot;       &quot;Besançon&quot;      &quot;Nîmes&quot;         &quot;Saint-Étienne&quot;</code></pre>
+</div>
+<div id="a4.-exploiter-les-relevés" class="section level2">
+<h2>A4. Exploiter les relevés</h2>
+<pre class="r"><code># A
+bilan_meteo &lt;- meteo %&gt;%
+  group_by(station) %&gt;%
+  summarise(
+    t_min_moy = mean(temp_min, na.rm = TRUE),
+    t_max_moy = mean(temp_max, na.rm = TRUE),
+    cumul_pluie = sum(pluie_mm, na.rm = TRUE),
+    jours_gel = sum(temp_min &lt; 0, na.rm = TRUE),
+    jours_pluie = sum(pluie_mm &gt; 0, na.rm = TRUE),
+    .groups = &quot;drop&quot;
+  )
+
+bilan_meteo</code></pre>
+<pre><code>## # A tibble: 4 × 6
+##   station       t_min_moy t_max_moy cumul_pluie jours_gel jours_pluie
+##   &lt;chr&gt;             &lt;dbl&gt;     &lt;dbl&gt;       &lt;dbl&gt;     &lt;int&gt;       &lt;int&gt;
+## 1 Besançon         -2.32       3.91        69.6        28          19
+## 2 Nîmes             5.01      11.0         99           0          15
+## 3 Orléans           0.774      7.07        50.8        11          11
+## 4 Saint-Étienne    -1.07       5.26        76.1        20          13</code></pre>
+<pre class="r"><code># B
+station_max_gel &lt;- bilan_meteo %&gt;%
+  slice_max(jours_gel, n = 1) %&gt;%
+  pull(station)
+
+station_max_pluie &lt;- bilan_meteo %&gt;%
+  slice_max(cumul_pluie, n = 1) %&gt;%
+  pull(station)
+
+cat(&quot;Station avec le plus grand nombre de jours de gel :&quot;, paste(station_max_gel, collapse = &quot;, &quot;), &quot;\n&quot;)</code></pre>
+<pre><code>## Station avec le plus grand nombre de jours de gel : Besançon</code></pre>
+<pre class="r"><code>cat(&quot;Station avec le plus grand cumul de pluie :&quot;, paste(station_max_pluie, collapse = &quot;, &quot;), &quot;\n&quot;)</code></pre>
+<pre><code>## Station avec le plus grand cumul de pluie : Nîmes</code></pre>
+<pre class="r"><code># C
+jour_plus_froid &lt;- meteo %&gt;%
+  group_by(station) %&gt;%
+  slice_min(temp_min, n = 1, with_ties = FALSE) %&gt;%
+  select(station, date, temp_min)
+
+jour_plus_froid</code></pre>
+<pre><code>## # A tibble: 4 × 3
+## # Groups:   station [4]
+##   station       date       temp_min
+##   &lt;chr&gt;         &lt;date&gt;        &lt;dbl&gt;
+## 1 Besançon      2026-01-26     -5.1
+## 2 Nîmes         2026-01-29      0.1
+## 3 Orléans       2026-01-15     -5.4
+## 4 Saint-Étienne 2026-01-02     -5.6</code></pre>
+</div>
+<div id="a5.-déboguer-des-imports" class="section level2">
+<h2>A5. Déboguer des imports</h2>
+<p>read.csv attend une virgule (,) entre les colonnes, alors que le
+fichier utilise un point-virgule (;). Toutes les colonnes sont donc
+collées en une seule</p>
+<p>read.csv2 ne saute pas la première ligne de titre et ne reconnaît pas
+“n/a” comme une valeur manquante</p>
+<p>Il manque uniquement le réglage de l’encodage (Latin1 au lieu de
+UTF-8) pour afficher correctement les accents français</p>
+<pre class="r"><code>prix_fr &lt;- read_csv2(
+  &quot;data/prix_fr.csv&quot;,
+  skip = 1,
+  na = c(&quot;n/a&quot;, &quot;NA&quot;, &quot;&quot;, &quot;-&quot;),
+  locale = locale(encoding = &quot;Latin1&quot;)
+)</code></pre>
+<pre><code>## ℹ Using &quot;&#39;,&#39;&quot; as decimal and &quot;&#39;.&#39;&quot; as grouping mark. Use `read_delim()` for more control.</code></pre>
+<pre><code>## Rows: 4 Columns: 4
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;;&quot;
+## chr (2): Raquette junior, tennis
+## dbl (2): 24,90, 12
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>prix_fr</code></pre>
+<pre><code>## # A tibble: 4 × 4
+##   `Raquette junior` `24,90`  `12` tennis  
+##   &lt;chr&gt;               &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;   
+## 1 Ballon taille 5      18.5    40 football
+## 2 Maillot rÃ©plique    60.0    NA football
+## 3 Chaussures trail     89       7 running 
+## 4 Gourde isotherme     15.0    25 running</code></pre>
+</div>
 
 
 

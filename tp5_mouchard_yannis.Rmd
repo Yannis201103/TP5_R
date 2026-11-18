@@ -9,12 +9,140 @@ library(tidyverse)
 library(readxl)
 ```
 
+## Partie A : Importer des fichiers texte récalcitrants
+
+## A1. Cinq versions d’un même fichier
+
 ```{r}
+# A
 ref <- read.table("data/auto2004_original.txt", header = TRUE, sep = "\t", dec = ".")
+# B 
 p_l3 <- read.table("data/auto2004_original_ligne3.txt", header = TRUE, sep = "\t", dec = ".", skip = 3)
+# C 
 p_sn <- read.table("data/auto2004_sans_nom.txt", header = FALSE, sep = "\t", dec = ".")
 names(p_sn) <- names(ref)
+# D 
 dm <- read.table("data/auto2004_don_manquante.txt", header = TRUE, sep = "\t", dec = ".", na.strings = c("NA", ""))
+# E 
 d99 <- read.table("data/auto2004_don_manquan_99999.txt", header = TRUE, sep = "\t", dec = ".", na.strings = "99999")
-d99
+
+verification_table <- data.frame(
+  Fichier = c("auto2004_original_ligne3 (p_l3)", "auto2004_sans_nom (p_sn)", "auto2004_don_manquante (dm)","auto2004_don_manquan_99999 (d99)"),
+  Dimensions = c(identical(dim(ref), dim(p_l3)),identical(dim(ref), dim(p_sn)),identical(dim(ref), dim(dm)),identical(dim(ref), dim(d99))),
+  Noms_de_colonnes = c(identical(names(ref), names(p_l3)),identical(names(ref), names(p_sn)),identical(names(ref), names(dm)),identical(names(ref), names(d99))),
+  Types_de_donnees = c(identical(sapply(ref, class), sapply(p_l3, class)),identical(sapply(ref, class), sapply(p_sn, class)),identical(sapply(ref, class), sapply(dm, class)),identical(sapply(ref, class), sapply(d99, class)))
+)
+verification_table
+```
+
+## A2. Comparer les valeurs manquantes
+
+```{r}
+# A
+cat("Nombre de NA dans dm :", sum(is.na(dm)), "\n")
+cat("Nombre de NA dans d99 :", sum(is.na(d99)), "\n")
+cat("Sont-elles aux mêmes positions ? :", identical(is.na(dm), is.na(d99)), "\n")
+
+# B
+cases_na_d99 <- which(is.na(d99), arr.ind = TRUE)
+
+valeurs_manquantes_ref <- data.frame(
+  Ligne = cases_na_d99[, "row"],
+  Colonne = colnames(d99)[cases_na_d99[, "col"]],
+  Modele = ref$Modele[cases_na_d99[, "row"]],
+  Valeur_Originale_Ref = mapply(function(r, c) ref[r, c], cases_na_d99[, "row"], cases_na_d99[, "col"])
+)
+
+valeurs_manquantes_ref
+
+
+# C
+d99_sans_na_strings <- read.table("data/auto2004_don_manquan_99999.txt", header = TRUE, sep = "\t", dec = ".")
+
+cat("Puissance moyenne fausse (avec 99999) :", mean(d99_sans_net <- d99_sans_na_strings$Puissance), "\n")
+cat("Puissance moyenne réelle (avec NA) :", mean(d99$Puissance, na.rm = TRUE), "\n")
+cat("Erreur commise (écart) :", mean(d99_sans_net <- d99_sans_na_strings$Puissance) - mean(d99$Puissance, na.rm = TRUE), "\n")
+```
+
+## A3. Des relevés météo à la française
+
+```{r}
+# A
+meteo <- read_csv2(
+  "data/stations_janvier2026.csv",
+  locale = locale(encoding = "Latin1"),
+  na = c("NA", "", "9999", "n/a", "-"),
+  comment = "#",
+  col_types = cols(
+    date = col_date(format = "%d/%m/%Y"),
+    station = col_character(),
+    temp_min = col_double(),
+    temp_max = col_double(),
+    pluie_mm = col_double(),
+    vent_kmh = col_double()
+  )
+)
+
+# B 
+dim(meteo)
+sapply(meteo, class)
+colSums(is.na(meteo))
+range(meteo$date)
+unique(meteo$station)
+
+```
+
+## A4. Exploiter les relevés
+
+```{r}
+# A
+bilan_meteo <- meteo %>%
+  group_by(station) %>%
+  summarise(
+    t_min_moy = mean(temp_min, na.rm = TRUE),
+    t_max_moy = mean(temp_max, na.rm = TRUE),
+    cumul_pluie = sum(pluie_mm, na.rm = TRUE),
+    jours_gel = sum(temp_min < 0, na.rm = TRUE),
+    jours_pluie = sum(pluie_mm > 0, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+bilan_meteo
+
+# B
+station_max_gel <- bilan_meteo %>%
+  slice_max(jours_gel, n = 1) %>%
+  pull(station)
+
+station_max_pluie <- bilan_meteo %>%
+  slice_max(cumul_pluie, n = 1) %>%
+  pull(station)
+
+cat("Station avec le plus grand nombre de jours de gel :", paste(station_max_gel, collapse = ", "), "\n")
+cat("Station avec le plus grand cumul de pluie :", paste(station_max_pluie, collapse = ", "), "\n")
+
+# C
+jour_plus_froid <- meteo %>%
+  group_by(station) %>%
+  slice_min(temp_min, n = 1, with_ties = FALSE) %>%
+  select(station, date, temp_min)
+
+jour_plus_froid
+```
+## A5. Déboguer des imports
+
+read.csv attend une virgule (,) entre les colonnes, alors que le fichier utilise un point-virgule (;). Toutes les colonnes sont donc collées en une seule
+
+read.csv2  ne saute pas la première ligne de titre et ne reconnaît pas "n/a" comme une valeur manquante
+
+Il manque uniquement le réglage de l'encodage (Latin1 au lieu de UTF-8) pour afficher correctement les accents français
+
+```{r}
+prix_fr <- read_csv2(
+  "data/prix_fr.csv",
+  skip = 1,
+  na = c("n/a", "NA", "", "-"),
+  locale = locale(encoding = "Latin1")
+)
+prix_fr
 ```
