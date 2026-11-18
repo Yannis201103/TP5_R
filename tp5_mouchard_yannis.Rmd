@@ -354,6 +354,150 @@ correlation_global_tasting <- wines_moy_etape %>%
 print(correlation_global_tasting)
 ```
 
+## Partie D : Nettoyer un fichier RH et joindre des tables
+
+## D1. Importer et diagnostiquer
+
+```{r}
+library(tidyverse)
+
+employee <- read_csv("data/employee.csv")
+
+dim(employee)
+
+colSums(is.na(employee))
+
+sum(duplicated(employee))
+
+employee %>% count(Country)       # Incohérence de casse ("US", "us", "AU", "au")
+employee %>% count(Gender)        # Valeur anormale ("G") en plus de F, M et NA
+summary(employee$Salary)          # Salaires anormalement bas (< 10 000) ou aberrants
+
+employee %>% 
+  mutate(Hire_Date = dmy(Hire_Date)) %>% 
+  filter(Hire_Date < ymd("1974-01-01")) %>% 
+  nrow()
+```
+
+## D2. Corriger
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+emp_propre <- employee %>%
+  mutate(
+    Employee_ID = if_else(is.na(Employee_ID), max(Employee_ID, na.rm = TRUE) + 1, Employee_ID)
+  ) %>%
+  mutate(
+    Country = toupper(Country)
+  ) %>%
+  mutate(
+    Gender = if_else(Gender %in% c("F", "M"), Gender, NA_character_)
+  ) %>%
+  mutate(
+    Salary = if_else(Salary < 10000, Salary * 10, Salary)
+  ) %>%
+  mutate(
+    Birth_Date = dmy(Birth_Date),
+    Hire_Date = dmy(Hire_Date),
+    Hire_Date = if_else(Hire_Date < ymd("1974-01-01"), as.Date(NA), Hire_Date)
+  ) %>%
+  mutate(
+    age_embauche = floor(as.numeric(interval(Birth_Date, Hire_Date) / years(1))),
+    anciennete = floor(as.numeric(interval(Hire_Date, ymd("2007-12-31")) / years(1)))
+  )
+emp_propre
+```
+
+## D3. Analyser
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+# A
+salaire_median_pays_sexe <- emp_propre %>%
+  group_by(Country, Gender) %>%
+  summarise(salaire_median = median(Salary, na.rm = TRUE), .groups = "drop")
+
+salaire_median_pays_sexe
+
+# B
+top5_jobs_stats <- emp_propre %>%
+  count(Job_Title, sort = TRUE) %>%
+  head(5) %>%
+  left_join(
+    emp_propre %>% 
+      group_by(Job_Title) %>% 
+      summarise(salaire_moyen = mean(Salary, na.rm = TRUE)),
+    by = "Job_Title"
+  )
+
+top5_jobs_stats
+
+# C
+age_moyen_decennie <- emp_propre %>%
+  mutate(decennie = (year(Hire_Date) %/% 10) * 10) %>%
+  group_by(decennie) %>%
+  summarise(age_moyen_embauche = mean(age_embauche, na.rm = TRUE), .groups = "drop")
+
+age_moyen_decennie
+
+# D
+age_minimal <- min(emp_propre$age_embauche, na.rm = TRUE)
+nb_avant_16 <- emp_propre %>% filter(age_embauche < 16) %>% nrow()
+
+cat("Âge minimal à l'embauche :", age_minimal, "\n")
+cat("Nombre d'employés embauchés avant 16 ans :", nb_avant_16, "\n")
+```
+
+## D4. Joindre les commandes et les clients
+
+```{r}
+library(tidyverse)
+
+# A
+commandes <- read_csv("data/commandes.csv")
+customer <- read_csv("data/customer.csv")
+
+clients_invalides <- commandes %>%
+  anti_join(customer, by = "Customer_ID")
+
+nrow(clients_invalides)
+
+# B 
+commandes_clients <- commandes %>%
+  left_join(customer %>% select(Customer_ID, Country, Gender), by = "Customer_ID")
+
+ca_par_pays <- commandes_clients %>%
+  group_by(Country) %>%
+  summarise(CA_total = sum(Total_Retail_Price, na.rm = TRUE))
+
+part_usa <- ca_par_pays %>%
+  mutate(part = CA_total / sum(CA_total) * 100)
+
+print(ca_par_pays)
+print(part_usa)
+
+commandes_vendeur <- commandes %>%
+  filter(Employee_ID != 99999999)
+
+matching_vendeurs <- commandes_vendeur %>%
+  inner_join(emp_propre, by = c("Employee_ID" = "Employee_ID"))
+
+nrow(matching_vendeurs)
+nrow(commandes_vendeur)
+
+top_vendeur <- commandes_vendeur %>%
+  inner_join(emp_propre, by = c("Employee_ID" = "Employee_ID")) %>%
+  group_by(Employee_ID, First, Last, Job_Title) %>%
+  summarise(CA_total = sum(Total_Retail_Price, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(CA_total)) %>%
+  head(1)
+
+print(top_vendeur)
+```
 
 
 

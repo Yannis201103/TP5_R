@@ -861,6 +861,249 @@ print(correlation_global_tasting)</code></pre>
 ##         &lt;dbl&gt;
 ## 1       0.840</code></pre>
 </div>
+<div id="partie-d-nettoyer-un-fichier-rh-et-joindre-des-tables" class="section level2">
+<h2>Partie D : Nettoyer un fichier RH et joindre des tables</h2>
+</div>
+<div id="d1.-importer-et-diagnostiquer" class="section level2">
+<h2>D1. Importer et diagnostiquer</h2>
+<pre class="r"><code>library(tidyverse)
+
+employee &lt;- read_csv(&quot;data/employee.csv&quot;)</code></pre>
+<pre><code>## Rows: 235 Columns: 9
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (7): First, Last, Gender, Job_Title, Country, Birth_Date, Hire_Date
+## dbl (2): Employee_ID, Salary
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>dim(employee)</code></pre>
+<pre><code>## [1] 235   9</code></pre>
+<pre class="r"><code>colSums(is.na(employee))</code></pre>
+<pre><code>## Employee_ID       First        Last      Gender      Salary   Job_Title 
+##           1           0           0           1           1           1 
+##     Country  Birth_Date   Hire_Date 
+##           0           0           1</code></pre>
+<pre class="r"><code>sum(duplicated(employee))</code></pre>
+<pre><code>## [1] 0</code></pre>
+<pre class="r"><code>employee %&gt;% count(Country)       # Incohérence de casse (&quot;US&quot;, &quot;us&quot;, &quot;AU&quot;, &quot;au&quot;)</code></pre>
+<pre><code>## # A tibble: 4 × 2
+##   Country     n
+##   &lt;chr&gt;   &lt;int&gt;
+## 1 AU         33
+## 2 US        196
+## 3 au          3
+## 4 us          3</code></pre>
+<pre class="r"><code>employee %&gt;% count(Gender)        # Valeur anormale (&quot;G&quot;) en plus de F, M et NA</code></pre>
+<pre><code>## # A tibble: 4 × 2
+##   Gender     n
+##   &lt;chr&gt;  &lt;int&gt;
+## 1 F        110
+## 2 G          1
+## 3 M        123
+## 4 &lt;NA&gt;       1</code></pre>
+<pre class="r"><code>summary(employee$Salary)          # Salaires anormalement bas (&lt; 10 000) ou aberrants</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.     NAs 
+##    2401   27804   34020   43955   47253  433800       1</code></pre>
+<pre class="r"><code>employee %&gt;% 
+  mutate(Hire_Date = dmy(Hire_Date)) %&gt;% 
+  filter(Hire_Date &lt; ymd(&quot;1974-01-01&quot;)) %&gt;% 
+  nrow()</code></pre>
+<pre><code>## [1] 2</code></pre>
+</div>
+<div id="d2.-corriger" class="section level2">
+<h2>D2. Corriger</h2>
+<pre class="r"><code>library(tidyverse)
+library(lubridate)
+
+emp_propre &lt;- employee %&gt;%
+  mutate(
+    Employee_ID = if_else(is.na(Employee_ID), max(Employee_ID, na.rm = TRUE) + 1, Employee_ID)
+  ) %&gt;%
+  mutate(
+    Country = toupper(Country)
+  ) %&gt;%
+  mutate(
+    Gender = if_else(Gender %in% c(&quot;F&quot;, &quot;M&quot;), Gender, NA_character_)
+  ) %&gt;%
+  mutate(
+    Salary = if_else(Salary &lt; 10000, Salary * 10, Salary)
+  ) %&gt;%
+  mutate(
+    Birth_Date = dmy(Birth_Date),
+    Hire_Date = dmy(Hire_Date),
+    Hire_Date = if_else(Hire_Date &lt; ymd(&quot;1974-01-01&quot;), as.Date(NA), Hire_Date)
+  ) %&gt;%
+  mutate(
+    age_embauche = floor(as.numeric(interval(Birth_Date, Hire_Date) / years(1))),
+    anciennete = floor(as.numeric(interval(Hire_Date, ymd(&quot;2007-12-31&quot;)) / years(1)))
+  )
+emp_propre</code></pre>
+<pre><code>## # A tibble: 235 × 11
+##    Employee_ID First Last  Gender Salary Job_Title Country Birth_Date Hire_Date 
+##          &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;   &lt;dbl&gt; &lt;chr&gt;     &lt;chr&gt;   &lt;date&gt;     &lt;date&gt;    
+##  1      120101 Patr… Lu    M      163040 Director  AU      1976-08-18 2003-07-01
+##  2      120104 Kare… Bill… F       46230 Administ… AU      1954-05-11 1981-01-01
+##  3      120105 Liz   Povey F       27110 Secretar… AU      1974-12-21 1999-05-01
+##  4      120106 John  Horn… M          NA Office A… AU      1944-12-23 1974-01-01
+##  5      120107 Sher… Shee… F       30475 Office A… AU      1978-02-01 NA        
+##  6      120108 Glad… Grom… F       27660 Warehous… AU      1984-02-23 2006-08-01
+##  7      120108 Gabr… Baker F       26495 Warehous… AU      1986-12-15 2006-10-01
+##  8      120110 Denn… Entw… M       28615 Warehous… AU      1949-11-20 1979-11-01
+##  9      120111 Ubal… Spil… M       26895 Security… AU      1949-07-23 NA        
+## 10      120112 Ellis Glat… F       26550 &lt;NA&gt;      AU      1969-02-17 1990-07-01
+## # ℹ 225 more rows
+## # ℹ 2 more variables: age_embauche &lt;dbl&gt;, anciennete &lt;dbl&gt;</code></pre>
+</div>
+<div id="d3.-analyser" class="section level2">
+<h2>D3. Analyser</h2>
+<pre class="r"><code>library(tidyverse)
+library(lubridate)
+
+# A
+salaire_median_pays_sexe &lt;- emp_propre %&gt;%
+  group_by(Country, Gender) %&gt;%
+  summarise(salaire_median = median(Salary, na.rm = TRUE), .groups = &quot;drop&quot;)
+
+salaire_median_pays_sexe</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##   Country Gender salaire_median
+##   &lt;chr&gt;   &lt;chr&gt;           &lt;dbl&gt;
+## 1 AU      F               27110
+## 2 AU      M               28090
+## 3 AU      &lt;NA&gt;            31285
+## 4 US      F               36315
+## 5 US      M               35870
+## 6 US      &lt;NA&gt;            33950</code></pre>
+<pre class="r"><code># B
+top5_jobs_stats &lt;- emp_propre %&gt;%
+  count(Job_Title, sort = TRUE) %&gt;%
+  head(5) %&gt;%
+  left_join(
+    emp_propre %&gt;% 
+      group_by(Job_Title) %&gt;% 
+      summarise(salaire_moyen = mean(Salary, na.rm = TRUE)),
+    by = &quot;Job_Title&quot;
+  )
+
+top5_jobs_stats</code></pre>
+<pre><code>## # A tibble: 5 × 3
+##   Job_Title                 n salaire_moyen
+##   &lt;chr&gt;                 &lt;int&gt;         &lt;dbl&gt;
+## 1 Trainee                  18        25477.
+## 2 Warehouse Assistant I    10        26262.
+## 3 Purchasing Agent I        6        30977.
+## 4 Accountant I              5        31563 
+## 5 Accountant II             5        37284</code></pre>
+<pre class="r"><code># C
+age_moyen_decennie &lt;- emp_propre %&gt;%
+  mutate(decennie = (year(Hire_Date) %/% 10) * 10) %&gt;%
+  group_by(decennie) %&gt;%
+  summarise(age_moyen_embauche = mean(age_embauche, na.rm = TRUE), .groups = &quot;drop&quot;)
+
+age_moyen_decennie</code></pre>
+<pre><code>## # A tibble: 5 × 2
+##   decennie age_moyen_embauche
+##      &lt;dbl&gt;              &lt;dbl&gt;
+## 1     1970               25.8
+## 2     1980               23.2
+## 3     1990               23.8
+## 4     2000               23.4
+## 5       NA              NaN</code></pre>
+<pre class="r"><code># D
+age_minimal &lt;- min(emp_propre$age_embauche, na.rm = TRUE)
+nb_avant_16 &lt;- emp_propre %&gt;% filter(age_embauche &lt; 16) %&gt;% nrow()
+
+cat(&quot;Âge minimal à l&#39;embauche :&quot;, age_minimal, &quot;\n&quot;)</code></pre>
+<pre><code>## Âge minimal à l&#39;embauche : 15</code></pre>
+<pre class="r"><code>cat(&quot;Nombre d&#39;employés embauchés avant 16 ans :&quot;, nb_avant_16, &quot;\n&quot;)</code></pre>
+<pre><code>## Nombre d&#39;employés embauchés avant 16 ans : 2</code></pre>
+</div>
+<div id="d4.-joindre-les-commandes-et-les-clients" class="section level2">
+<h2>D4. Joindre les commandes et les clients</h2>
+<pre class="r"><code>library(tidyverse)
+
+# A
+commandes &lt;- read_csv(&quot;data/commandes.csv&quot;)</code></pre>
+<pre><code>## Rows: 617 Columns: 10
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## dbl  (8): Customer_ID, Employee_ID, Order_ID, Order_Type, Product_ID, Quanti...
+## date (2): Order_Date, Delivery_Date
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>customer &lt;- read_csv(&quot;data/customer.csv&quot;)</code></pre>
+<pre><code>## Rows: 77 Columns: 9
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr  (5): Country, Gender, Customer_FirstName, Customer_LastName, Customer_A...
+## dbl  (3): Customer_ID, Street_Number, Customer_Type_ID
+## date (1): Birth_Date
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>clients_invalides &lt;- commandes %&gt;%
+  anti_join(customer, by = &quot;Customer_ID&quot;)
+
+nrow(clients_invalides)</code></pre>
+<pre><code>## [1] 0</code></pre>
+<pre class="r"><code># B 
+commandes_clients &lt;- commandes %&gt;%
+  left_join(customer %&gt;% select(Customer_ID, Country, Gender), by = &quot;Customer_ID&quot;)
+
+ca_par_pays &lt;- commandes_clients %&gt;%
+  group_by(Country) %&gt;%
+  summarise(CA_total = sum(Total_Retail_Price, na.rm = TRUE))
+
+part_usa &lt;- ca_par_pays %&gt;%
+  mutate(part = CA_total / sum(CA_total) * 100)
+
+print(ca_par_pays)</code></pre>
+<pre><code>## # A tibble: 7 × 2
+##   Country CA_total
+##   &lt;chr&gt;      &lt;dbl&gt;
+## 1 AU        17321.
+## 2 CA        11951.
+## 3 DE        15395.
+## 4 IL         1560.
+## 5 TR         5176.
+## 6 US        43525.
+## 7 ZA         5150.</code></pre>
+<pre class="r"><code>print(part_usa)</code></pre>
+<pre><code>## # A tibble: 7 × 3
+##   Country CA_total  part
+##   &lt;chr&gt;      &lt;dbl&gt; &lt;dbl&gt;
+## 1 AU        17321. 17.3 
+## 2 CA        11951. 11.9 
+## 3 DE        15395. 15.4 
+## 4 IL         1560.  1.56
+## 5 TR         5176.  5.17
+## 6 US        43525. 43.5 
+## 7 ZA         5150.  5.15</code></pre>
+<pre class="r"><code>commandes_vendeur &lt;- commandes %&gt;%
+  filter(Employee_ID != 99999999)
+
+matching_vendeurs &lt;- commandes_vendeur %&gt;%
+  inner_join(emp_propre, by = c(&quot;Employee_ID&quot; = &quot;Employee_ID&quot;))
+
+nrow(matching_vendeurs)</code></pre>
+<pre><code>## [1] 15</code></pre>
+<pre class="r"><code>nrow(commandes_vendeur)</code></pre>
+<pre><code>## [1] 324</code></pre>
+<pre class="r"><code>top_vendeur &lt;- commandes_vendeur %&gt;%
+  inner_join(emp_propre, by = c(&quot;Employee_ID&quot; = &quot;Employee_ID&quot;)) %&gt;%
+  group_by(Employee_ID, First, Last, Job_Title) %&gt;%
+  summarise(CA_total = sum(Total_Retail_Price, na.rm = TRUE), .groups = &quot;drop&quot;) %&gt;%
+  arrange(desc(CA_total)) %&gt;%
+  head(1)
+
+print(top_vendeur)</code></pre>
+<pre><code>## # A tibble: 1 × 5
+##   Employee_ID First Last    Job_Title            CA_total
+##         &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;   &lt;chr&gt;                   &lt;dbl&gt;
+## 1      120732 Kent  Uenking Purchasing Agent III     668.</code></pre>
+</div>
 
 
 
