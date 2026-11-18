@@ -230,7 +230,129 @@ pays_rds <- readRDS("sorties/pays.rds")
 is.factor(pays_rds$CONTI)
 ```
 
+## Partie C : Ranger les données (tidy data)
 
+## C1. La pluie au format long
+
+```{r}
+# A
+pluie_long <- pluie %>%
+  pivot_longer(
+    cols = janv:déc,
+    names_to = "mois",
+    values_to = "mm"
+  )
+
+# B
+pluie_long <- pluie_long %>%
+  mutate(
+    mois = factor(
+      mois, 
+      levels = c("jan", "fév", "mar", "avr", "mai", "juin", "juil", "août", "sep", "oct", "nov", "déc"),
+      ordered = TRUE
+    )
+  )
+
+# C
+mois_plus_pluvieux_2025 <- pluie_long %>%
+  filter(annee == 2025) %>%
+  group_by(station) %>%
+  slice_max(mm, n = 1, with_ties = FALSE) %>%
+  select(station, annee, mois, mm)
+
+knitr::kable(mois_plus_pluvieux_2025, caption = "Mois le plus pluvieux par station en 2025")
+
+# D
+pluie_pivot <- pluie_long %>%
+  group_by(station, annee, mois) %>%
+  summarise(mm = sum(mm, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = annee,
+    values_from = mm,
+    names_prefix = "annee_"
+  ) %>%
+  mutate(
+    difference = annee_2025 - annee_2024
+  )
+
+forte_hausse <- pluie_pivot %>%
+  slice_max(difference, n = 1, with_ties = FALSE)
+
+head(pluie_pivot, 12)
+```
+
+## C2. Les températures au format long
+
+```{r}
+
+meteo_long <- meteo %>%
+  pivot_longer(
+    cols = c(temp_min, temp_max),
+    names_to = "type_mesure",
+    values_to = "temperature",
+    names_prefix = "temp_"
+  )
+
+amplitude_station <- meteo_long %>%
+  pivot_wider(
+    names_from = type_mesure,
+    values_from = temperature
+  ) %>%
+  mutate(amplitude = max - min) %>%
+  group_by(station) %>%
+  summarise(
+    amplitude_thermique_moyenne = mean(amplitude, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+amplitude_station
+```
+
+## C3. Les vins
+
+```{r}
+library(readxl)
+library(tidyverse)
+
+# A
+wines <- read_excel("data/wines.xlsx")
+
+wines_long <- wines %>%
+  pivot_longer(
+    cols = matches("^(rest|view|shaking|tasting)"),
+    names_to = c("etape", "descripteur"),
+    names_pattern = "^(rest|view|shaking|tasting)(.*)$",
+    values_to = "note"
+  )
+
+# B
+wines_moy_etape <- wines_long %>%
+  group_by(Wines, etape) %>%
+  summarise(note_moyenne = mean(note, na.rm = TRUE), .groups = "drop") %>%
+  mutate(etape = factor(etape, levels = c("rest", "view", "shaking", "tasting"))) %>%
+  pivot_wider(
+    names_from = etape,
+    values_from = note_moyenne
+  )
+
+head(wines_moy_etape)
+
+# C
+top3_tasting <- wines_moy_etape %>%
+  arrange(desc(tasting)) %>%
+  slice_head(n = 3) %>%
+  left_join(wines %>% select(Wines, Soul), by = "Wines") %>%
+  select(Wines, Soul, tasting)
+
+top3_tasting
+
+# D
+correlation_global_tasting <- wines_moy_etape %>%
+  left_join(wines %>% select(Wines, Global), by = "Wines") %>%
+  summarise(correlation = cor(Global, tasting, use = "complete.obs"))
+
+print(correlation_global_tasting)
+```
 
 
 

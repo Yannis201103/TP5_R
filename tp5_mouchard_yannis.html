@@ -668,6 +668,199 @@ pays_rds &lt;- readRDS(&quot;sorties/pays.rds&quot;)
 is.factor(pays_rds$CONTI)</code></pre>
 <pre><code>## [1] TRUE</code></pre>
 </div>
+<div id="partie-c-ranger-les-données-tidy-data" class="section level2">
+<h2>Partie C : Ranger les données (tidy data)</h2>
+</div>
+<div id="c1.-la-pluie-au-format-long" class="section level2">
+<h2>C1. La pluie au format long</h2>
+<pre class="r"><code># A
+pluie_long &lt;- pluie %&gt;%
+  pivot_longer(
+    cols = janv:déc,
+    names_to = &quot;mois&quot;,
+    values_to = &quot;mm&quot;
+  )
+
+# B
+pluie_long &lt;- pluie_long %&gt;%
+  mutate(
+    mois = factor(
+      mois, 
+      levels = c(&quot;jan&quot;, &quot;fév&quot;, &quot;mar&quot;, &quot;avr&quot;, &quot;mai&quot;, &quot;juin&quot;, &quot;juil&quot;, &quot;août&quot;, &quot;sep&quot;, &quot;oct&quot;, &quot;nov&quot;, &quot;déc&quot;),
+      ordered = TRUE
+    )
+  )
+
+# C
+mois_plus_pluvieux_2025 &lt;- pluie_long %&gt;%
+  filter(annee == 2025) %&gt;%
+  group_by(station) %&gt;%
+  slice_max(mm, n = 1, with_ties = FALSE) %&gt;%
+  select(station, annee, mois, mm)
+
+knitr::kable(mois_plus_pluvieux_2025, caption = &quot;Mois le plus pluvieux par station en 2025&quot;)</code></pre>
+<table>
+<caption>Mois le plus pluvieux par station en 2025</caption>
+<thead>
+<tr class="header">
+<th align="left">station</th>
+<th align="right">annee</th>
+<th align="left">mois</th>
+<th align="right">mm</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Besançon</td>
+<td align="right">2025</td>
+<td align="left">NA</td>
+<td align="right">220</td>
+</tr>
+<tr class="even">
+<td align="left">Nîmes</td>
+<td align="right">2025</td>
+<td align="left">NA</td>
+<td align="right">79</td>
+</tr>
+<tr class="odd">
+<td align="left">Orléans</td>
+<td align="right">2025</td>
+<td align="left">juil</td>
+<td align="right">139</td>
+</tr>
+<tr class="even">
+<td align="left">Saint-Étienne</td>
+<td align="right">2025</td>
+<td align="left">nov</td>
+<td align="right">97</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># D
+pluie_pivot &lt;- pluie_long %&gt;%
+  group_by(station, annee, mois) %&gt;%
+  summarise(mm = sum(mm, na.rm = TRUE), .groups = &quot;drop&quot;) %&gt;%
+  pivot_wider(
+    names_from = annee,
+    values_from = mm,
+    names_prefix = &quot;annee_&quot;
+  ) %&gt;%
+  mutate(
+    difference = annee_2025 - annee_2024
+  )
+
+forte_hausse &lt;- pluie_pivot %&gt;%
+  slice_max(difference, n = 1, with_ties = FALSE)
+
+head(pluie_pivot, 12)</code></pre>
+<pre><code>## # A tibble: 12 × 5
+##    station  mois  annee_2024 annee_2025 difference
+##    &lt;chr&gt;    &lt;ord&gt;      &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;
+##  1 Besançon avr           48         57          9
+##  2 Besançon mai           47         31        -16
+##  3 Besançon juin          59         45        -14
+##  4 Besançon juil          56         13        -43
+##  5 Besançon août          83         46        -37
+##  6 Besançon oct           66         45        -21
+##  7 Besançon nov           18         54         36
+##  8 Besançon déc           62        145         83
+##  9 Besançon &lt;NA&gt;         187        317        130
+## 10 Nîmes    avr           26         31          5
+## 11 Nîmes    mai           55         22        -33
+## 12 Nîmes    juin          67         25        -42</code></pre>
+</div>
+<div id="c2.-les-températures-au-format-long" class="section level2">
+<h2>C2. Les températures au format long</h2>
+<pre class="r"><code>meteo_long &lt;- meteo %&gt;%
+  pivot_longer(
+    cols = c(temp_min, temp_max),
+    names_to = &quot;type_mesure&quot;,
+    values_to = &quot;temperature&quot;,
+    names_prefix = &quot;temp_&quot;
+  )
+
+amplitude_station &lt;- meteo_long %&gt;%
+  pivot_wider(
+    names_from = type_mesure,
+    values_from = temperature
+  ) %&gt;%
+  mutate(amplitude = max - min) %&gt;%
+  group_by(station) %&gt;%
+  summarise(
+    amplitude_thermique_moyenne = mean(amplitude, na.rm = TRUE),
+    .groups = &quot;drop&quot;
+  )
+
+amplitude_station</code></pre>
+<pre><code>## # A tibble: 4 × 2
+##   station       amplitude_thermique_moyenne
+##   &lt;chr&gt;                               &lt;dbl&gt;
+## 1 Besançon                             6.13
+## 2 Nîmes                                6.16
+## 3 Orléans                              6.33
+## 4 Saint-Étienne                        6.36</code></pre>
+</div>
+<div id="c3.-les-vins" class="section level2">
+<h2>C3. Les vins</h2>
+<pre class="r"><code>library(readxl)
+library(tidyverse)
+
+# A
+wines &lt;- read_excel(&quot;data/wines.xlsx&quot;)
+
+wines_long &lt;- wines %&gt;%
+  pivot_longer(
+    cols = matches(&quot;^(rest|view|shaking|tasting)&quot;),
+    names_to = c(&quot;etape&quot;, &quot;descripteur&quot;),
+    names_pattern = &quot;^(rest|view|shaking|tasting)(.*)$&quot;,
+    values_to = &quot;note&quot;
+  )
+
+# B
+wines_moy_etape &lt;- wines_long %&gt;%
+  group_by(Wines, etape) %&gt;%
+  summarise(note_moyenne = mean(note, na.rm = TRUE), .groups = &quot;drop&quot;) %&gt;%
+  mutate(etape = factor(etape, levels = c(&quot;rest&quot;, &quot;view&quot;, &quot;shaking&quot;, &quot;tasting&quot;))) %&gt;%
+  pivot_wider(
+    names_from = etape,
+    values_from = note_moyenne
+  )
+
+head(wines_moy_etape)</code></pre>
+<pre><code>## # A tibble: 6 × 5
+##   Wines  rest shaking tasting  view
+##   &lt;chr&gt; &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt;
+## 1 1BEN   2.6     2.65    2.84  3.49
+## 2 1BOI   2.71    2.77    2.98  3.77
+## 3 1CHA   2.42    2.52    2.58  3.01
+## 4 1DAM   2.88    2.82    3.02  3.94
+## 5 1FON   2.48    2.54    2.72  3.31
+## 6 1ING   2.65    2.71    2.88  3.81</code></pre>
+<pre class="r"><code># C
+top3_tasting &lt;- wines_moy_etape %&gt;%
+  arrange(desc(tasting)) %&gt;%
+  slice_head(n = 3) %&gt;%
+  left_join(wines %&gt;% select(Wines, Soul), by = &quot;Wines&quot;) %&gt;%
+  select(Wines, Soul, tasting)
+
+top3_tasting</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   Wines Soul      tasting
+##   &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt;
+## 1 1DAM  Reference    3.02
+## 2 1POY  Reference    3.02
+## 3 1BOI  Reference    2.98</code></pre>
+<pre class="r"><code># D
+correlation_global_tasting &lt;- wines_moy_etape %&gt;%
+  left_join(wines %&gt;% select(Wines, Global), by = &quot;Wines&quot;) %&gt;%
+  summarise(correlation = cor(Global, tasting, use = &quot;complete.obs&quot;))
+
+print(correlation_global_tasting)</code></pre>
+<pre><code>## # A tibble: 1 × 1
+##   correlation
+##         &lt;dbl&gt;
+## 1       0.840</code></pre>
+</div>
 
 
 
