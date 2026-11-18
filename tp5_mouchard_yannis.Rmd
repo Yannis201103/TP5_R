@@ -146,3 +146,106 @@ prix_fr <- read_csv2(
 )
 prix_fr
 ```
+
+## Partie B : Excel, SAS et export
+
+## B1. Un classeur à plusieurs feuilles
+
+```{r}
+# A
+feuilles <- excel_sheets("data/pluie_mensuelle.xlsx")
+feuilles
+
+# B
+pluie <- map_dfr(feuilles, ~ {
+  read_excel("data/pluie_mensuelle.xlsx", sheet = .x, skip = 2) %>%
+    mutate(annee = as.numeric(.x))
+})
+
+# C
+cumul_annuel <- pluie %>%
+  pivot_longer(cols = janv:déc, names_to = "mois", values_to = "mm") %>%
+  group_by(station, annee) %>%
+  summarise(cumul_annuel_mm = sum(mm, na.rm = TRUE), .groups = "drop")
+
+cumul_annuel
+```
+
+## B2. Des données SAS
+
+```{r}
+library(haven)
+# A
+pays <- read_sas("data/paysniv3.sas7bdat")
+
+dim(pays)
+colSums(is.na(pays))
+
+# B
+pays$CONTI <- factor(pays$CONTI, labels = c("Afrique", "Asie", "Amériques", "Europe", "Océanie"))
+
+# C
+stats_continent <- pays %>%
+  group_by(CONTI) %>%
+  summarise(
+    nb_pays = n(),
+    esperance_vie_moy = mean(ESPER, na.rm = TRUE),
+    fecondite_moy = mean(FERTI, na.rm = TRUE),
+    pnb_median = median(PNB, na.rm = TRUE)
+  ) %>%
+  arrange(desc(esperance_vie_moy))
+
+stats_continent
+
+# D
+top5_min_esper <- pays %>%
+  slice_min(ESPER, n = 5) %>%
+  select(NOM, CONTI, ESPER)
+
+top5_min_esper
+```
+
+## B3. Exporter
+
+```{r}
+library(writexl)
+# A
+write_csv2(bilan_meteo, "sorties/bilan_meteo.csv")
+
+bilan_meteo_reluft <- read_csv2("sorties/bilan_meteo.csv")
+
+# B
+write_xlsx(
+  list(
+    "Pluie_Mensuelle" = pluie,
+    "Bilan_Meteo" = bilan_meteo
+  ),
+  path = "sorties/export_complet.xlsx"
+)
+
+# C
+saveRDS(pays, "sorties/pays.rds")
+pays_rds <- readRDS("sorties/pays.rds")
+
+is.factor(pays_rds$CONTI)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
